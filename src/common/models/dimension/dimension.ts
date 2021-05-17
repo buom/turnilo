@@ -17,6 +17,7 @@
 
 import { Class, Instance } from "immutable-class";
 import { $, Expression } from "plywood";
+import { DEFAULT_LIMITS } from "../../limit/limit";
 import { makeTitle, verifyUrlSafeName } from "../../utils/general/general";
 import { granularityEquals, granularityFromJS, GranularityJS, granularityToJS } from "../granularity/granularity";
 import { Bucket } from "../split/split";
@@ -53,6 +54,7 @@ export interface DimensionValue {
   multiValue?: boolean;
   url?: string;
   granularities?: Bucket[];
+  limits?: number[];
   bucketedBy?: Bucket;
   bucketingStrategy?: BucketingStrategy;
   sortStrategy?: string;
@@ -67,6 +69,7 @@ export interface DimensionJS {
   multiValue?: boolean;
   url?: string;
   granularities?: GranularityJS[];
+  limits?: number[];
   bucketedBy?: GranularityJS;
   bucketingStrategy?: BucketingStrategy;
   sortStrategy?: string;
@@ -89,7 +92,8 @@ export class Dimension implements Instance<DimensionValue, DimensionJS> {
       formula: parameters.formula || (typeof parameterExpression === "string" ? parameterExpression : null),
       kind: parameters.kind ? readKind(parameters.kind) : typeToKind((parameters as any).type),
       multiValue: parameters.multiValue === true,
-      url: parameters.url
+      url: parameters.url,
+      limits: parameters.limits ? parameters.limits : DEFAULT_LIMITS
     };
 
     if (parameters.granularities) {
@@ -118,6 +122,7 @@ export class Dimension implements Instance<DimensionValue, DimensionJS> {
   public className: string;
   public url: string;
   public granularities: Bucket[];
+  public limits: number[];
   public bucketedBy: Bucket;
   public bucketingStrategy: BucketingStrategy;
   public sortStrategy: string;
@@ -146,6 +151,7 @@ export class Dimension implements Instance<DimensionValue, DimensionJS> {
       this.url = parameters.url;
     }
 
+    this.limits = parameters.limits ? parameters.limits : DEFAULT_LIMITS;
     const granularities = parameters.granularities;
     if (granularities) {
       if (!Array.isArray(granularities) || granularities.length !== 5) {
@@ -174,6 +180,7 @@ export class Dimension implements Instance<DimensionValue, DimensionJS> {
       multiValue: this.multiValue,
       url: this.url,
       granularities: this.granularities,
+      limits: this.limits,
       bucketedBy: this.bucketedBy,
       bucketingStrategy: this.bucketingStrategy,
       sortStrategy: this.sortStrategy
@@ -191,6 +198,7 @@ export class Dimension implements Instance<DimensionValue, DimensionJS> {
     if (this.url) js.url = this.url;
     if (this.multiValue) js.multiValue = this.multiValue;
     if (this.granularities) js.granularities = this.granularities.map(g => granularityToJS(g));
+    if (this.limits) js.limits = this.limits;
     if (this.bucketedBy) js.bucketedBy = granularityToJS(this.bucketedBy);
     if (this.bucketingStrategy) js.bucketingStrategy = this.bucketingStrategy;
     if (this.sortStrategy) js.sortStrategy = this.sortStrategy;
@@ -214,10 +222,17 @@ export class Dimension implements Instance<DimensionValue, DimensionJS> {
       this.kind === other.kind &&
       this.multiValue === other.multiValue &&
       this.url === other.url &&
+      this.limitsEqual(other.limits) &&
       this.granularitiesEqual(other.granularities) &&
       granularityEquals(this.bucketedBy, other.bucketedBy) &&
       this.bucketingStrategy === other.bucketingStrategy &&
       this.sortStrategy === other.sortStrategy;
+  }
+
+  private limitsEqual(otherLimits: number[]): boolean {
+    if (!otherLimits) return !this.limits;
+    if (otherLimits.length !== this.limits.length) return false;
+    return this.limits.every((limit, idx) => limit === otherLimits[idx]);
   }
 
   private granularitiesEqual(otherGranularities: Bucket[]): boolean {
